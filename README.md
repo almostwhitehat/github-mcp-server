@@ -113,10 +113,15 @@ Here are two ways you might configure the server in your `mcp.json`:
 ```json
 {
   "mcpServers": {
-    "github-mc-local-with-includes": {
-      "command": "./github-mcp-server",
+    "github-with-include-tools": {
+      "command": "docker",
       "args": [
-        "stdio",
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server",
         "--include-tools",
         "update_issue,create_issue"
       ],
@@ -132,10 +137,15 @@ Here are two ways you might configure the server in your `mcp.json`:
 ```json
 {
   "mcpServers": {
-    "github-mc-local-with-excludes": {
-      "command": "./github-mcp-server",
+    "github-with-include-tools": {
+      "command": "docker",
       "args": [
-        "stdio",
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server",
         "--exclude-tools",
         "get_file_contents,get_issue,get_issue_comments,get_me,get_pull_request,get_pull_request_comments,get_pull_request_files,get_pull_request_reviews,get_pull_request_status,list_code_scanning_alerts,list_commits,list_issues,list_pull_requests"
       ],
