@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/github/github-mcp-server/pkg/translations"
 	"github.com/google/go-github/v69/github"
@@ -15,13 +16,45 @@ import (
 )
 
 // NewServer creates a new GitHub MCP server with the specified GH client and logger.
-func NewServer(client *github.Client, readOnly bool, t translations.TranslationHelperFunc) *server.MCPServer {
+func NewServer(client *github.Client, readOnly bool, t translations.TranslationHelperFunc, excludeTools string, includeTools string) *server.MCPServer {
 	// Create a new MCP server
 	s := server.NewMCPServer(
 		"github-mcp-server",
 		"0.0.1",
 		server.WithResourceCapabilities(true, true),
 		server.WithLogging())
+
+	// Parse tool lists
+	excludeList := make(map[string]bool)
+	if excludeTools != "" {
+		for _, tool := range strings.Split(excludeTools, ",") {
+			excludeList[strings.TrimSpace(tool)] = true
+		}
+	}
+
+	includeList := make(map[string]bool)
+	if includeTools != "" {
+		for _, tool := range strings.Split(includeTools, ",") {
+			includeList[strings.TrimSpace(tool)] = true
+		}
+	}
+
+	// Helper function to check if a tool should be included
+	shouldIncludeTool := func(toolName string) bool {
+		// If include list is not empty, only include tools in that list
+		if len(includeList) > 0 {
+			return includeList[toolName]
+		}
+		// Otherwise, include all tools except those in the exclude list
+		return !excludeList[toolName]
+	}
+
+	// Helper function to add a tool if it should be included
+	addToolIfIncluded := func(tool mcp.Tool, handler server.ToolHandlerFunc) {
+		if shouldIncludeTool(tool.Name) {
+			s.AddTool(tool, handler)
+		}
+	}
 
 	// Add GitHub Resources
 	s.AddResourceTemplate(getRepositoryResourceContent(client, t))
@@ -31,52 +64,53 @@ func NewServer(client *github.Client, readOnly bool, t translations.TranslationH
 	s.AddResourceTemplate(getRepositoryResourcePrContent(client, t))
 
 	// Add GitHub tools - Issues
-	s.AddTool(getIssue(client, t))
-	s.AddTool(searchIssues(client, t))
-	s.AddTool(listIssues(client, t))
+	addToolIfIncluded(getIssue(client, t))
+	addToolIfIncluded(searchIssues(client, t))
+	addToolIfIncluded(listIssues(client, t))
+
 	if !readOnly {
-		s.AddTool(createIssue(client, t))
-		s.AddTool(addIssueComment(client, t))
-		s.AddTool(createIssue(client, t))
-		s.AddTool(updateIssue(client, t))
+		addToolIfIncluded(createIssue(client, t))
+		addToolIfIncluded(addIssueComment(client, t))
+		addToolIfIncluded(updateIssue(client, t))
 	}
 
 	// Add GitHub tools - Pull Requests
-	s.AddTool(getPullRequest(client, t))
-	s.AddTool(listPullRequests(client, t))
-	s.AddTool(getPullRequestFiles(client, t))
-	s.AddTool(getPullRequestStatus(client, t))
-	s.AddTool(getPullRequestComments(client, t))
-	s.AddTool(getPullRequestReviews(client, t))
+	addToolIfIncluded(getPullRequest(client, t))
+	addToolIfIncluded(listPullRequests(client, t))
+	addToolIfIncluded(getPullRequestFiles(client, t))
+	addToolIfIncluded(getPullRequestStatus(client, t))
+	addToolIfIncluded(getPullRequestComments(client, t))
+	addToolIfIncluded(getPullRequestReviews(client, t))
 	if !readOnly {
-		s.AddTool(mergePullRequest(client, t))
-		s.AddTool(updatePullRequestBranch(client, t))
-		s.AddTool(createPullRequestReview(client, t))
-		s.AddTool(createPullRequest(client, t))
+		addToolIfIncluded(mergePullRequest(client, t))
+		addToolIfIncluded(updatePullRequestBranch(client, t))
+		addToolIfIncluded(createPullRequestReview(client, t))
+		addToolIfIncluded(createPullRequest(client, t))
 	}
 
 	// Add GitHub tools - Repositories
-	s.AddTool(searchRepositories(client, t))
-	s.AddTool(getFileContents(client, t))
-	s.AddTool(listCommits(client, t))
+	addToolIfIncluded(searchRepositories(client, t))
+	addToolIfIncluded(getFileContents(client, t))
+	addToolIfIncluded(listCommits(client, t))
 	if !readOnly {
-		s.AddTool(createOrUpdateFile(client, t))
-		s.AddTool(createRepository(client, t))
-		s.AddTool(forkRepository(client, t))
-		s.AddTool(createBranch(client, t))
-		s.AddTool(pushFiles(client, t))
+		addToolIfIncluded(createOrUpdateFile(client, t))
+		addToolIfIncluded(createRepository(client, t))
+		addToolIfIncluded(forkRepository(client, t))
+		addToolIfIncluded(createBranch(client, t))
+		addToolIfIncluded(pushFiles(client, t))
 	}
 
 	// Add GitHub tools - Search
-	s.AddTool(searchCode(client, t))
-	s.AddTool(searchUsers(client, t))
+	addToolIfIncluded(searchCode(client, t))
+	addToolIfIncluded(searchUsers(client, t))
 
 	// Add GitHub tools - Users
-	s.AddTool(getMe(client, t))
+	addToolIfIncluded(getMe(client, t))
 
 	// Add GitHub tools - Code Scanning
-	s.AddTool(getCodeScanningAlert(client, t))
-	s.AddTool(listCodeScanningAlerts(client, t))
+	addToolIfIncluded(getCodeScanningAlert(client, t))
+	addToolIfIncluded(listCodeScanningAlerts(client, t))
+
 	return s
 }
 

@@ -95,6 +95,70 @@ If you don't have Docker, you can use `go` to build the binary in the
 command with the `GITHUB_PERSONAL_ACCESS_TOKEN` environment variable set to
 your token.
 
+## Filtering Tools
+
+By default, the GitHub MCP Server exposes all available tools to the connected agent.
+You can customize which tools are available using the `--include-tools` and `--exclude-tools` command-line arguments.
+
+- `--include-tools`: Specifies a comma-separated list of tool names to include. Only these tools will be available. All other tools will be excluded.
+- `--exclude-tools`: Specifies a comma-separated list of tool names to exclude. All other tools will be available.
+
+These flags are mutually exclusive; you cannot use both at the same time.
+
+**Examples:**
+
+Here are two ways you might configure the server in your `mcp.json`:
+
+1. Include only specific tools (allowlist):
+```json
+{
+  "mcpServers": {
+    "github-with-include-tools": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server",
+        "--include-tools",
+        "update_issue,create_issue"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+2. Exclude specific tools (denylist):
+```json
+{
+  "mcpServers": {
+    "github-with-include-tools": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server",
+        "--exclude-tools",
+        "get_file_contents,get_issue,get_issue_comments,get_me,get_pull_request,get_pull_request_comments,get_pull_request_files,get_pull_request_reviews,get_pull_request_status,list_code_scanning_alerts,list_commits,list_issues,list_pull_requests"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+Using these configuration options allows you to precisely control the capabilities granted to the AI agent connecting to the server, enhancing security and alignment with intended use cases.
+
 ## GitHub Enterprise Server
 
 The flag `--gh-host` and the environment variable `GH_HOST` can be used to set

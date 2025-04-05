@@ -42,6 +42,16 @@ var (
 			readOnly := viper.GetBool("read-only")
 			exportTranslations := viper.GetBool("export-translations")
 			prettyPrintJSON := viper.GetBool("pretty-print-json")
+
+			// Get tool filtering configuration
+			excludeToolsRaw := viper.GetString("exclude-tools")
+			includeToolsRaw := viper.GetString("include-tools")
+
+			// Validate that only one of include/exclude is provided
+			if excludeToolsRaw != "" && includeToolsRaw != "" {
+				stdlog.Fatal("Error: --include-tools and --exclude-tools flags cannot be used together.")
+			}
+
 			logger, err := initLogger(logFile)
 			if err != nil {
 				stdlog.Fatal("Failed to initialize logger:", err)
@@ -53,6 +63,8 @@ var (
 				logCommands:        logCommands,
 				exportTranslations: exportTranslations,
 				prettyPrintJSON:    prettyPrintJSON,
+				excludeTools:       excludeToolsRaw, // Pass raw strings
+				includeTools:       includeToolsRaw, // Pass raw strings
 			}
 			if err := runStdioServer(cfg); err != nil {
 				stdlog.Fatal("failed to run stdio server:", err)
@@ -71,6 +83,8 @@ func init() {
 	rootCmd.PersistentFlags().Bool("export-translations", false, "Save translations to a JSON file")
 	rootCmd.PersistentFlags().String("gh-host", "", "Specify the GitHub hostname (for GitHub Enterprise etc.)")
 	rootCmd.PersistentFlags().Bool("pretty-print-json", false, "Pretty print JSON output")
+	rootCmd.PersistentFlags().String("exclude-tools", "", "Comma-separated list of tools to exclude from the server")
+	rootCmd.PersistentFlags().String("include-tools", "", "Comma-separated list of tools to include in the server (only these tools will be exposed)")
 
 	// Bind flag to viper
 	_ = viper.BindPFlag("read-only", rootCmd.PersistentFlags().Lookup("read-only"))
@@ -79,6 +93,8 @@ func init() {
 	_ = viper.BindPFlag("export-translations", rootCmd.PersistentFlags().Lookup("export-translations"))
 	_ = viper.BindPFlag("gh-host", rootCmd.PersistentFlags().Lookup("gh-host"))
 	_ = viper.BindPFlag("pretty-print-json", rootCmd.PersistentFlags().Lookup("pretty-print-json"))
+	_ = viper.BindPFlag("exclude-tools", rootCmd.PersistentFlags().Lookup("exclude-tools"))
+	_ = viper.BindPFlag("include-tools", rootCmd.PersistentFlags().Lookup("include-tools"))
 
 	// Add subcommands
 	rootCmd.AddCommand(stdioCmd)
@@ -113,6 +129,8 @@ type runConfig struct {
 	logCommands        bool
 	exportTranslations bool
 	prettyPrintJSON    bool
+	excludeTools       string
+	includeTools       string
 }
 
 // JSONPrettyPrintWriter is a Writer that pretty prints input to indented JSON
@@ -157,8 +175,8 @@ func runStdioServer(cfg runConfig) error {
 
 	t, dumpTranslations := translations.TranslationHelper()
 
-	// Create
-	ghServer := github.NewServer(ghClient, cfg.readOnly, t)
+	// Create server with tool filtering
+	ghServer := github.NewServer(ghClient, cfg.readOnly, t, cfg.excludeTools, cfg.includeTools)
 	stdioServer := server.NewStdioServer(ghServer)
 
 	stdLogger := stdlog.New(cfg.logger.Writer(), "stdioserver", 0)
